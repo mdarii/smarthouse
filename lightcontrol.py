@@ -39,16 +39,17 @@ def sub_cb(topic, msg):
     print(topic)
     print(msg)
 
-def mqtt_conect(server,port,client_id,user,password,alarm_led,topics):
+def mqtt_conect(mqtt_conf,alarm_led):
     print('Connecting to Mqtt server')
-    mqttclient = MQTTClient(client_id,server=server,port=port,user=user,password=password)
+    mqttclient = MQTTClient(mqtt_conf['client_id'],server=mqtt_conf['server'],port=mqtt_conf['port'],user=mqtt_conf['user'],password=mqtt_conf['password'])
     mqttclient.set_callback(sub_cb)
     try:
         mqttclient.connect()
         time.sleep_ms(10)
         alarm_led.off()
-        for topic in topics:
-            mqttclient.subscribe(topic=topic)
+        if mqtt_conf['topics']:
+            for topic in mqtt_conf['topics']:
+                mqttclient.subscribe(topic=topic)
         print("Mqqt connected")
         return mqttclient, False
     except:
@@ -70,7 +71,7 @@ if config['wifi']:
     do_connect(sta_if,config['wifi'])
 
 if config['mqtt']:
-        mqtt_client, last_try = mqtt_conect(config['mqtt']['server'],config['mqtt']['port'],config['mqtt']['client_id'],config['mqtt']['user'],config['mqtt']['password'],alarm_led,config['mqtt']['topics'])
+        mqtt_client, last_try = mqtt_conect(config['mqtt'],alarm_led)
 
 while True:
     if mqtt_client:
@@ -81,5 +82,5 @@ while True:
             mqtt_client = False
             alarm_led.on()
     elif time.time() >= (last_try+60):
-        mqtt_client, last_try = mqtt_conect(config['mqtt']['server'],config['mqtt']['port'],config['mqtt']['client_id'],config['mqtt']['user'],config['mqtt']['password'],alarm_led,config['mqtt']['topics'])
+        mqtt_client, last_try = mqtt_conect(config['mqtt'],alarm_led)
     time.sleep_ms(100)
