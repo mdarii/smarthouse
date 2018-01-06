@@ -5,6 +5,7 @@ import time
 import os
 from sys import exit
 import gc
+from umqtt.robust import MQTTClient
 
 gc.enable()
 gc.collect()
@@ -32,6 +33,9 @@ def do_connect(sta_if,conf):
             pass
     print('network config:', sta_if.ifconfig())
 
+def sub_cb(topic, msg):
+    print(topic)
+    print(msg)
 
 if check_file('config.json'):
     config=ujson.loads(read_file('config.json'))
@@ -46,4 +50,13 @@ if config['wifi']:
     sta_if.active(True)
     do_connect(sta_if,config['wifi'])
 
-print(config)
+if config['mqtt']:
+    mqttclient = MQTTClient(config['mqtt']['client_id'], server=config['mqtt']['server'], port=config['mqtt']['port'], user=config['mqtt']['user'], password=config['mqtt']['password'])
+    mqttclient.set_callback(sub_cb)
+    mqttclient.DEBUG = True
+    mqttclient.connect()
+    for topic in config['mqtt']['topics']:
+        mqttclient.subscribe(topic=topic)
+
+print('Check for messages')
+mqttclient.check_msg()
