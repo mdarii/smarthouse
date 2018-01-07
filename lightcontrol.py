@@ -11,6 +11,14 @@ gc.enable()
 gc.collect()
 
 alarm_led = Pin(10, mode=Pin.OUT)
+clockPin  = Pin(5, Pin.OUT)
+latch_in_Pin  = Pin(4, Pin.OUT)
+data_in_Pin  = Pin(16, Pin.IN)
+latch_out_Pin  = Pin(0, Pin.OUT)
+latch_out_Pin.on()
+data_out_Pin  = Pin(2, Pin.OUT)
+outputs_state = []
+inputs_state = []
 
 def check_file(file):
     try:
@@ -38,6 +46,32 @@ def do_connect(sta_if,conf):
 def sub_cb(topic, msg):
     print(topic)
     print(msg)
+
+def read_states(circ_count):
+    s = []
+    latch_in_Pin.off()
+    time.sleep_ms(20)
+    latch_in_Pin.on()
+    for i in range(0,pow(8,circ_count)):
+        print(data_in_Pin.value())
+        s.append(data_in_Pin.value())
+        clockPin.on()
+        time.sleep_ms(1)
+        clockPin.off()
+    return s
+
+def set_pin(address):
+    global current
+    latch_out_Pin.off()
+    data_out_Pin.off()
+    clockPin.off()
+    for x in range(len(address),0, -1):
+        clockPin.off()
+        data_out_Pin.value(address[x])
+        clockPin.on()
+        data_out_Pin.off()
+        clockPin.off()
+        latch_out_Pin.on()
 
 def mqtt_conect(mqtt_conf,alarm_led):
     print('Connecting to Mqtt server')
@@ -70,6 +104,16 @@ if config['wifi']:
     sta_if.active(True)
     do_connect(sta_if,config['wifi'])
 
+if config['inputs']:
+    inputs = config['inputs']
+else:
+    inputs = 1
+
+if config['outputs']:
+    outputs = config['outputs']
+else:
+    outputs = 1
+
 if config['mqtt']:
         mqtt_client, last_try = mqtt_conect(config['mqtt'],alarm_led)
 
@@ -84,3 +128,4 @@ while True:
     elif time.time() >= (last_try+60):
         mqtt_client, last_try = mqtt_conect(config['mqtt'],alarm_led)
     time.sleep_ms(100)
+    set_pin(read_states(inputs))
