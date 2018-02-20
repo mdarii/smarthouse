@@ -13,12 +13,14 @@ from machine import unique_id
 gc.enable()
 gc.collect()
 
-client_id = ubinascii.hexlify(machine.unique_id()).decode()
-alarm_led = Pin(10, mode=Pin.OUT)
+client_id = ubinascii.hexlify(unique_id()).decode()
+alarm_led = Pin(14, mode=Pin.OUT)
 clockPin  = Pin(5, Pin.OUT)
 latch_in_Pin  = Pin(4, Pin.OUT)
 data_in_Pin  = Pin(16, Pin.IN)
 latch_out_Pin  = Pin(0, Pin.OUT)
+negation_out_Pin  = Pin(12, Pin.OUT)
+negation_out_Pin.value(0)
 latch_out_Pin.on()
 data_out_Pin  = Pin(2, Pin.OUT)
 outputs_state = []
@@ -64,11 +66,12 @@ def read_states(circ_count):
     time.sleep_ms(20)
     latch_in_Pin.on()
     for i in range(0,8*circ_count):
-#        print(data_in_Pin.value())
+        print(data_in_Pin.value())
         s.append(data_in_Pin.value())
         clockPin.on()
         time.sleep_ms(1)
         clockPin.off()
+    latch_in_Pin.on()
     return s
 
 def set_pin(address,switches):
@@ -86,11 +89,12 @@ def set_pin(address,switches):
     latch_out_Pin.on()
     if mqtt_client:
         for x in range(len(address),0, -1):
-            topic = switches[str(x-1)]+"/feeds/lights/state"
-            try:
-                mqtt_client.publish(topic=topic, msg=str(address[x-1]))
-            except:
-                print('Ops')
+            if outputs_state[x-1] != address[x-1]:
+                topic = switches[str(x-1)]+"/feeds/lights/state"
+                try:
+                    mqtt_client.publish(topic=topic, msg=str(address[x-1]))
+                except:
+                    print('Ops')
     outputs_state = [x for x in address]
 
 def mqtt_conect(mqtt_conf,alarm_led,switches):
@@ -114,10 +118,10 @@ def mqtt_conect(mqtt_conf,alarm_led,switches):
         return False, time.time()
 
 def negation(out,pos):
-    if out[pos] == 1:
-        out[pos] = 0
-    else:
+    if out[pos] == 0:
         out[pos] = 1
+    else:
+        out[pos] = 0
     return out
 
 if check_file('config.json'):
@@ -162,6 +166,7 @@ while True:
     elif time.time() >= (last_try+60):
         mqtt_client, last_try = mqtt_conect(config['mqtt'],alarm_led,config['switches'].values())
     current_inputs_state = read_states(inputs)
+    print(current_inputs_state)
     for i in range(len(current_inputs_state),0,-1):
         if current_inputs_state[i-1] != inputs_state[i-1] and current_inputs_state[i-1] == 1:
             for x in config['buttons'][str(i-1)]['switches']:
@@ -173,6 +178,6 @@ while True:
     else:
       print('Changes')
       set_pin(current_outputs_state,config['switches'])
-    time.sleep_ms(1000)
+    time.sleep_ms(100)
 #  except:
 #    print('Ops')
